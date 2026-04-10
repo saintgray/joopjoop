@@ -43,10 +43,12 @@ export function ModReportsClient() {
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-center justify-between gap-3">
-        <div className="text-sm text-zinc-600">
-          {loading ? "불러오는 중..." : `${reports.length}건`}
-        </div>
-        <button type="button" className="rounded-md border bg-white px-3 py-2 text-sm hover:bg-zinc-50" onClick={load}>
+        <div className="text-sm text-zinc-600">{loading ? "불러오는 중..." : `${reports.length}건`}</div>
+        <button
+          type="button"
+          className="rounded-md border bg-white px-3 py-2 text-sm hover:bg-zinc-50"
+          onClick={load}
+        >
           새로고침
         </button>
       </div>
@@ -58,17 +60,27 @@ export function ModReportsClient() {
       <div className="divide-y rounded-xl border border-zinc-200">
         {reports.map((r) => {
           const target =
-            r.targetType === "ITEM"
-              ? r.item
-                ? <Link className="underline" href={`/items/${r.item.id}`}>{r.item.title}</Link>
-                : <span className="text-zinc-500">삭제된 글</span>
-              : r.targetType === "MESSAGE"
-                ? r.message
-                  ? <span className="line-clamp-1">{r.message.body}</span>
-                  : <span className="text-zinc-500">삭제된 메시지</span>
-                : r.targetUser
-                  ? <span>{r.targetUser.displayName} ({r.targetUser.email})</span>
-                  : <span className="text-zinc-500">삭제된 유저</span>;
+            r.targetType === "ITEM" ? (
+              r.item ? (
+                <Link className="underline" href={`/items/${r.item.id}`}>
+                  {r.item.title}
+                </Link>
+              ) : (
+                <span className="text-zinc-500">삭제된 글</span>
+              )
+            ) : r.targetType === "MESSAGE" ? (
+              r.message ? (
+                <span className="line-clamp-1">{r.message.body}</span>
+              ) : (
+                <span className="text-zinc-500">삭제된 메시지</span>
+              )
+            ) : r.targetUser ? (
+              <span>
+                {r.targetUser.displayName} ({r.targetUser.email})
+              </span>
+            ) : (
+              <span className="text-zinc-500">삭제된 유저</span>
+            );
 
           return (
             <div key={r.id} className="p-4">
@@ -88,15 +100,11 @@ export function ModReportsClient() {
               <div className="mt-2 whitespace-pre-wrap rounded-md bg-zinc-50 p-3 text-sm text-zinc-800">
                 {r.reason}
               </div>
-              <div className="mt-3 text-xs text-zinc-500">
-                조치 API는 다음 단계에서 연결합니다(밴/삭제/상태 변경).
-              </div>
+              <div className="mt-3 text-xs text-zinc-500">조치 API는 다음 단계에서 연결합니다(밴/삭제/상태 변경).</div>
             </div>
           );
         })}
-        {reports.length === 0 ? (
-          <div className="p-4 text-sm text-zinc-600">신고가 없습니다.</div>
-        ) : null}
+        {reports.length === 0 ? <div className="p-4 text-sm text-zinc-600">신고가 없습니다.</div> : null}
       </div>
     </div>
   );

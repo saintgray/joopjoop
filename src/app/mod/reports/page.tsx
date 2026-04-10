@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
-import { ModReportsClient } from "./reports-client";
+import { ModReportsClient } from "./reportsClient";
 
 export default async function ModReportsPage() {
   const user = await getCurrentUser();
