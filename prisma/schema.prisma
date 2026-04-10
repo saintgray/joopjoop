@@ -1,0 +1,174 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  USER
+  MOD
+  ADMIN
+}
+
+enum ItemType {
+  LOST
+  FOUND
+}
+
+enum ItemStatus {
+  OPEN
+  RESOLVED
+  REMOVED
+}
+
+enum ReportStatus {
+  OPEN
+  REVIEWING
+  ACTIONED
+  DISMISSED
+}
+
+enum ReportTargetType {
+  ITEM
+  MESSAGE
+  USER
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique @db.VarChar(320)
+  passwordHash String   @db.VarChar(255)
+  displayName  String   @db.VarChar(80)
+  role         UserRole @default(USER)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  isBanned     Boolean  @default(false)
+
+  items        Item[]   @relation("UserItems")
+  sessions     Session[]
+  reports      Report[] @relation("ReporterReports")
+  targetedReports Report[] @relation("TargetUserReports")
+  messages     ChatMessage[] @relation("SenderMessages")
+  modActions   ModerationAction[]
+
+  @@index([role])
+  @@index([createdAt])
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  token     String   @unique @db.VarChar(64)
+  userId    String
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model Item {
+  id           String     @id @default(cuid())
+  type         ItemType
+  status       ItemStatus @default(OPEN)
+  title        String     @db.VarChar(120)
+  description  String     @db.Text
+  category     String?    @db.VarChar(60)
+
+  occurredAt   DateTime   @db.DateTime(0)
+  latitude     Decimal    @db.Decimal(9, 6)
+  longitude    Decimal    @db.Decimal(9, 6)
+  locationText String?    @db.VarChar(255)
+
+  imagePath    String     @db.VarChar(255)
+  /// 64-bit pHash stored as 16-hex chars
+  imagePHash   String     @db.Char(16)
+
+  createdById  String
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  createdBy    User       @relation("UserItems", fields: [createdById], references: [id], onDelete: Cascade)
+  threads      ChatThread[]
+  reports      Report[]   @relation("ItemReports")
+
+  @@index([type, status])
+  @@index([occurredAt])
+  @@index([createdAt])
+  @@index([latitude, longitude])
+  @@index([imagePHash])
+}
+
+model ChatThread {
+  id        String   @id @default(cuid())
+  itemId    String
+  userAId   String
+  userBId   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  item      Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  messages  ChatMessage[]
+
+  @@unique([itemId, userAId, userBId])
+  @@index([itemId])
+  @@index([updatedAt])
+}
+
+model ChatMessage {
+  id        String   @id @default(cuid())
+  threadId  String
+  senderId  String
+  body      String   @db.Text
+  createdAt DateTime @default(now())
+
+  thread ChatThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  sender User       @relation("SenderMessages", fields: [senderId], references: [id], onDelete: Cascade)
+
+  reports Report[]  @relation("MessageReports")
+
+  @@index([threadId, createdAt])
+  @@index([senderId, createdAt])
+}
+
+model Report {
+  id          String           @id @default(cuid())
+  status      ReportStatus     @default(OPEN)
+  targetType  ReportTargetType
+  reason      String           @db.Text
+  createdAt   DateTime         @default(now())
+  resolvedAt  DateTime?
+
+  reporterId  String
+  reporter    User             @relation("ReporterReports", fields: [reporterId], references: [id], onDelete: Cascade)
+
+  itemId      String?
+  item        Item?            @relation("ItemReports", fields: [itemId], references: [id], onDelete: Cascade)
+
+  messageId   String?
+  message     ChatMessage?     @relation("MessageReports", fields: [messageId], references: [id], onDelete: Cascade)
+
+  targetUserId String?
+  targetUser   User?           @relation("TargetUserReports", fields: [targetUserId], references: [id], onDelete: Cascade)
+
+  @@index([status, createdAt])
+  @@index([reporterId, createdAt])
+  @@index([targetType])
+}
+
+model ModerationAction {
+  id          String   @id @default(cuid())
+  modId       String
+  action      String   @db.VarChar(40)
+  details     String?  @db.Text
+  createdAt   DateTime @default(now())
+
+  mod User @relation(fields: [modId], references: [id], onDelete: Cascade)
+
+  @@index([modId, createdAt])
+  @@index([action])
+}
