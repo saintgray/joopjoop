@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import path from "node:path";
-import { mkdir } from "node:fs/promises";
+import { mkdtemp, writeFile } from "node:fs/promises";
+import os from "node:os";
 import sharp from "sharp";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
@@ -25,11 +26,12 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const type = searchParams.get("type");
   const status = searchParams.get("status") ?? "OPEN";
+  const statusParsed = status === "OPEN" || status === "RESOLVED" ? status : "OPEN";
 
   const items = await prisma.item.findMany({
     where: {
       ...(type ? { type: type === "LOST" ? "LOST" : "FOUND" } : {}),
-      ...(status ? { status: status as any } : {}),
+      ...(statusParsed ? { status: statusParsed } : {}),
     },
     orderBy: { createdAt: "desc" },
     take: 50,
@@ -68,13 +70,10 @@ export async function POST(req: Request) {
   if (typeof metaRaw !== "string") {
     return NextResponse.json({ ok: false, error: "INVALID_META" }, { status: 400 });
   }
-  if (!(file instanceof File)) {
-    return NextResponse.json({ ok: false, error: "INVALID_IMAGE" }, { status: 400 });
-  }
+  if (!(file instanceof File)) return NextResponse.json({ ok: false, error: "INVALID_IMAGE" }, { status: 400 });
 
-  const name = (file as any).name as string | undefined;
-  const lowerName = (name ?? "").toLowerCase();
-  const mime = (file as any).type as string | undefined;
+  const lowerName = (file.name ?? "").toLowerCase();
+  const mime = file.type ?? "";
   const looksLikeHeic =
     mime === "image/heic" ||
     mime === "image/heif" ||
@@ -93,25 +92,29 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, error: "INVALID_INPUT" }, { status: 400 });
   }
 
-  const uploadsDir = path.join(process.cwd(), "public", "uploads");
-  await mkdir(uploadsDir, { recursive: true });
-
   const itemId = crypto.randomUUID();
-  const outRel = `/uploads/${itemId}.jpg`;
-  const outAbs = path.join(process.cwd(), "public", outRel);
+  const atlasBaseUrl = process.env.IMAGE_SERVER_URL;
+  const bucketName = process.env.ATLAS_BUCKET_NAME;
+  if (!atlasBaseUrl || !bucketName) {
+    return NextResponse.json({ ok: false, error: "SERVER_CONFIG_MISSING" }, { status: 500 });
+  }
 
   const arrayBuffer = await file.arrayBuffer();
   const input = Buffer.from(arrayBuffer);
 
+  const tmpDir = await mkdtemp(path.join(os.tmpdir(), "joopjoop-upload-"));
+  const tmpAbs = path.join(tmpDir, `${itemId}.jpg`);
+
   try {
     // Normalize image (strip EXIF, cap size) before hashing.
-    await sharp(input)
+    const normalized = await sharp(input)
       .rotate()
       .resize({ width: 1280, height: 1280, fit: "inside", withoutEnlargement: true })
       .jpeg({ quality: 82, mozjpeg: true })
-      .toFile(outAbs);
-  } catch (e: any) {
-    const msg = typeof e?.message === "string" ? e.message : "";
+      .toBuffer();
+    await writeFile(tmpAbs, normalized);
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : "";
     if (msg.includes("heif") || msg.includes("heic")) {
       return NextResponse.json(
         { ok: false, error: "UNSUPPORTED_IMAGE_FORMAT", message: "HEIC/HEIF는 현재 지원하지 않습니다. JPG/PNG로 변환 후 업로드해주세요." },
@@ -124,7 +127,40 @@ export async function POST(req: Request) {
     );
   }
 
-  const imagePHash = await computePHashHex(outAbs);
+  const imagePHash = await computePHashHex(tmpAbs);
+
+  const tokenRes = await fetch(new URL("/api/upload-token", req.url), { method: "POST" }).catch(() => null);
+  if (!tokenRes || !tokenRes.ok) {
+    return NextResponse.json({ ok: false, error: "ATLAS_TOKEN_FAILED" }, { status: 502 });
+  }
+  const tokenJson = (await tokenRes.json().catch(() => null)) as { ok?: boolean; token?: string } | null;
+  const token = tokenJson?.token;
+  if (!token) return NextResponse.json({ ok: false, error: "ATLAS_TOKEN_FAILED" }, { status: 502 });
+
+  const normalizedBuf = await sharp(tmpAbs).toBuffer();
+  const ext = "jpg";
+  const uniqueFileName = `${itemId}.${ext}`;
+  const formData = new FormData();
+  const bytes = new Uint8Array(normalizedBuf);
+  formData.append("file", new Blob([bytes], { type: "image/jpeg" }), uniqueFileName);
+
+  const uploadResponse = await fetch(`${atlasBaseUrl}/upload/${bucketName}`, {
+    method: "POST",
+    body: formData,
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  }).catch(() => null);
+
+  if (!uploadResponse || !uploadResponse.ok) {
+    return NextResponse.json({ ok: false, error: "ATLAS_UPLOAD_FAILED" }, { status: 502 });
+  }
+  const uploadBody = (await uploadResponse.json().catch(() => null)) as { filename?: string } | null;
+  const filename = uploadBody?.filename;
+  if (!filename) return NextResponse.json({ ok: false, error: "ATLAS_UPLOAD_FAILED" }, { status: 502 });
+
+  const publicBase = process.env.NEXT_PUBLIC_IMAGE_SERVER_URL ?? atlasBaseUrl;
+  const imageUrl = `${publicBase}/uploads/${bucketName}/${filename}`;
 
   // Basic duplicate prevention: same user posting same hash recently (24h)
   const dupSince = new Date(Date.now() - 1000 * 60 * 60 * 24);
@@ -147,7 +183,7 @@ export async function POST(req: Request) {
       latitude: parsed.data.latitude.toFixed(6),
       longitude: parsed.data.longitude.toFixed(6),
       locationText: parsed.data.locationText,
-      imagePath: outRel,
+      imagePath: imageUrl,
       imagePHash,
       createdById: user.id,
     },
@@ -169,7 +205,7 @@ export async function POST(req: Request) {
   });
 
   // Lightweight matching: opposite type, nearby + similar image.
-  const opposite = created.type === "LOST" ? "FOUND" : "LOST";
+  const opposite: "LOST" | "FOUND" = created.type === "LOST" ? "FOUND" : "LOST";
   const lat = Number(created.latitude);
   const lng = Number(created.longitude);
   const maxMeters = 5_000;
@@ -184,7 +220,7 @@ export async function POST(req: Request) {
 
   const candidates = await prisma.item.findMany({
     where: {
-      type: opposite as any,
+      type: opposite,
       status: "OPEN",
       occurredAt: { gte: minDate, lte: maxDate },
       latitude: { gte: (lat - latDelta).toFixed(6), lte: (lat + latDelta).toFixed(6) },
@@ -209,10 +245,11 @@ export async function POST(req: Request) {
         { lat, lng },
         { lat: Number(c.latitude), lng: Number(c.longitude) },
       );
-      const ham = hammingDistanceHex64(created.imagePHash, c.imagePHash);
+      const ham =
+        created.imagePHash && c.imagePHash ? hammingDistanceHex64(created.imagePHash, c.imagePHash) : 999;
       return { ...c, distanceMeters: dist, hamming: ham };
     })
-    .filter((m) => m.distanceMeters <= maxMeters && m.hamming <= 18)
+    .filter((m) => m.distanceMeters <= maxMeters && (!created.imagePHash || m.hamming <= 18))
     .sort((a, b) => a.hamming - b.hamming || a.distanceMeters - b.distanceMeters)
     .slice(0, 10);
 

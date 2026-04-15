@@ -1,4 +1,3 @@
-import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
@@ -36,10 +35,10 @@ export default async function ItemDetailPage(props: { params: Promise<{ id: stri
 
   const lat = Number(item.latitude);
   const lng = Number(item.longitude);
-  const opposite = item.type === "LOST" ? "FOUND" : "LOST";
+  const opposite: "LOST" | "FOUND" = item.type === "LOST" ? "FOUND" : "LOST";
 
   const candidates = await prisma.item.findMany({
-    where: { type: opposite as any, status: "OPEN" },
+    where: { type: opposite, status: "OPEN" },
     take: 80,
     orderBy: { createdAt: "desc" },
     select: { id: true, title: true, imagePath: true, imagePHash: true, latitude: true, longitude: true, occurredAt: true },
@@ -51,96 +50,143 @@ export default async function ItemDetailPage(props: { params: Promise<{ id: stri
         { lat, lng },
         { lat: Number(c.latitude), lng: Number(c.longitude) },
       );
-      const ham = hammingDistanceHex64(item.imagePHash, c.imagePHash);
+      const ham = item.imagePHash && c.imagePHash ? hammingDistanceHex64(item.imagePHash, c.imagePHash) : 999;
       return { ...c, distanceMeters: dist, hamming: ham };
     })
-    .filter((m) => m.hamming <= 18)
+    .filter((m) => !item.imagePHash || m.hamming <= 18)
     .sort((a, b) => a.hamming - b.hamming || a.distanceMeters - b.distanceMeters)
     .slice(0, 6);
 
   return (
-    <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8">
-      <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
-        <div className="overflow-hidden rounded-2xl border border-white/10 bg-white text-zinc-900">
-          <div className="relative aspect-[4/3] bg-zinc-100">
-            <Image src={item.imagePath} alt={item.title} fill className="object-cover" />
-          </div>
-          <div className="p-5">
-            <div className="text-xs text-zinc-600">
-              {item.type === "LOST" ? "분실" : "습득"} · {new Date(item.occurredAt).toLocaleString("ko-KR")}
-            </div>
-            <h1 className="mt-1 text-xl font-semibold tracking-tight">{item.title}</h1>
-            <div className="mt-2 whitespace-pre-wrap text-sm text-zinc-800">{item.description}</div>
-            <div className="mt-3 text-xs text-zinc-600">
-              작성자: {item.createdBy.displayName}
-              {item.locationText ? ` · 장소: ${item.locationText}` : ""}
-            </div>
-            <div className="mt-4">
-              <KakaoMapView lat={lat} lng={lng} />
-            </div>
-          </div>
-        </div>
+    <main className="bg-[var(--civic-bg)] text-[var(--civic-text)] min-h-screen pb-24">
+      <div className="mx-auto max-w-7xl px-4 md:px-8 py-8 pb-32">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+          <div className="lg:col-span-7 space-y-8">
+            <section className="bg-[var(--civic-surface-lowest)] overflow-hidden">
+              <div className="aspect-[16/10] w-full relative group">
+                {item.imagePath ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img alt={item.title} className="w-full h-full object-cover" src={item.imagePath} />
+                ) : (
+                  <div className="w-full h-full bg-[var(--civic-surface-high)]" />
+                )}
+                <div className="absolute top-4 left-4 bg-[var(--civic-primary)] text-white px-3 py-1 text-xs tracking-widest uppercase">
+                  {item.type === "FOUND" ? "습득" : "분실"} #{item.id.slice(0, 5)}
+                </div>
+              </div>
+            </section>
 
-        <div className="flex flex-col gap-4">
-          <div className="rounded-2xl border border-white/10 bg-white p-5 text-zinc-900">
-            <div className="text-sm font-semibold">추천 매칭</div>
-            <div className="mt-1 text-xs text-zinc-600">
-              사진 유사도(pHash) + 거리 기준으로 근접 글을 보여줍니다.
-            </div>
+            <section className="bg-[var(--civic-surface-low)] p-8 space-y-6">
+              <div className="flex justify-between items-start border-b border-[var(--civic-border)] pb-6">
+                <div className="space-y-1">
+                  <p className="text-[10px] tracking-widest uppercase text-[var(--civic-muted)] mb-1">
+                    카테고리: {item.category ?? "미분류"}
+                  </p>
+                  <h2 className="text-[var(--civic-primary)] text-3xl font-bold tracking-tight">{item.title}</h2>
+                </div>
+                <div className="bg-[#4f2e00] text-white px-4 py-2 text-sm font-bold tracking-tight">
+                  {item.status === "OPEN" ? "진행 중" : item.status === "RESOLVED" ? "해결" : item.status}
+                </div>
+              </div>
 
-            {matches.length === 0 ? (
-              <div className="mt-4 text-sm text-zinc-600">아직 유사한 글이 없어요.</div>
-            ) : (
-              <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                {matches.map((m) => (
-                  <Link key={m.id} href={`/items/${m.id}`} className="overflow-hidden rounded-xl border hover:shadow-sm">
-                    <div className="relative aspect-[4/3] bg-zinc-100">
-                      <Image src={m.imagePath} alt={m.title} fill className="object-cover" />
-                    </div>
-                    <div className="p-3">
-                      <div className="line-clamp-1 text-sm font-medium">{m.title}</div>
-                      <div className="mt-1 text-[11px] text-zinc-600">
-                        hamming {m.hamming} · {Math.round(m.distanceMeters)}m ·{" "}
-                        {new Date(m.occurredAt).toLocaleDateString("ko-KR")}
-                      </div>
-                    </div>
+              <div className="grid grid-cols-2 gap-8 py-4">
+                <div className="flex items-start gap-3">
+                  <div>
+                    <p className="text-[10px] tracking-widest uppercase text-slate-500">날짜</p>
+                    <p className="font-bold">{new Date(item.occurredAt).toLocaleDateString("ko-KR")}</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div>
+                    <p className="text-[10px] tracking-widest uppercase text-slate-500">장소</p>
+                    <p className="font-bold">{item.locationText ?? "—"}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <p className="text-[10px] tracking-widest uppercase text-slate-500">상세 설명</p>
+                <p className="text-[var(--civic-muted)] leading-relaxed text-sm whitespace-pre-wrap">{item.description}</p>
+              </div>
+            </section>
+
+            <section className="bg-[var(--civic-surface-low)] p-1 overflow-hidden">
+              <div className="h-64 w-full relative">
+                <div className="w-full h-full">
+                  <KakaoMapView lat={lat} lng={lng} />
+                </div>
+                <div className="absolute bottom-4 right-4 bg-[var(--civic-surface-lowest)] px-4 py-2 font-bold text-xs tracking-tighter text-[var(--civic-primary)] flex items-center gap-2">
+                  지도로 크게 보기
+                </div>
+              </div>
+            </section>
+          </div>
+
+          <div className="lg:col-span-5 space-y-8">
+            {user?.id === item.createdById ? null : (
+              <div className="flex flex-col gap-3">
+                {!user ? (
+                  <Link
+                    href="/login"
+                    className="w-full bg-[var(--civic-primary)] text-white py-5 font-bold tracking-widest uppercase flex items-center justify-center gap-2"
+                  >
+                    로그인 후 채팅
                   </Link>
-                ))}
+                ) : (
+                  <StartChatButton itemId={item.id} />
+                )}
+                <Link
+                  href={`/report?type=ITEM&id=${item.id}`}
+                  className="w-full bg-[var(--civic-surface-highest)] text-[var(--civic-text)] py-5 font-bold tracking-widest uppercase flex items-center justify-center gap-2"
+                >
+                  신고하기
+                </Link>
               </div>
             )}
-          </div>
 
-          <div className="rounded-2xl border border-white/10 bg-white p-5 text-zinc-900">
-            <div className="text-sm font-semibold">연락하기</div>
-            <div className="mt-1 text-xs text-zinc-600">
-              글 작성자에게 채팅으로 문의할 수 있어요.
-            </div>
-            <div className="mt-4 flex flex-wrap gap-2">
-              {!user ? (
-                <Link className="rounded-md border bg-white px-3 py-2 text-sm hover:bg-zinc-50" href="/login">
-                  로그인 후 채팅
-                </Link>
-              ) : user.id === item.createdById ? (
-                <div className="text-sm text-zinc-600">내가 작성한 글입니다.</div>
+            <div className="bg-[var(--civic-surface-lowest)] p-6 outline outline-1 outline-[var(--civic-border)]">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-[var(--civic-primary)] font-bold text-lg tracking-tight">추천 매칭</h3>
+                <span className="bg-[var(--civic-primary-container)] text-white text-[10px] font-bold px-2 py-0.5">AI</span>
+              </div>
+
+              {matches.length === 0 ? (
+                <div className="text-sm text-[var(--civic-muted)]">추천 매칭이 없습니다.</div>
               ) : (
-                <StartChatButton itemId={item.id} />
+                <div className="space-y-4">
+                  {matches.map((m) => (
+                    <Link key={m.id} href={`/items/${m.id}`} className="flex gap-4 p-2 hover:bg-[var(--civic-surface-low)] transition-colors">
+                      <div className="w-20 h-20 flex-shrink-0 bg-[var(--civic-surface-high)] overflow-hidden">
+                        {m.imagePath ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img alt={m.title} className="w-full h-full object-cover grayscale hover:grayscale-0 transition-all" src={m.imagePath} />
+                        ) : null}
+                      </div>
+                      <div className="flex flex-col justify-center gap-1">
+                        <span className="font-black text-xs">유사도 {Math.max(0, 100 - m.hamming * 4)}%</span>
+                        <h4 className="font-bold text-sm text-[var(--civic-text)]">{m.title}</h4>
+                        <p className="text-[10px] text-slate-500 uppercase tracking-widest">
+                          약 {Math.round(m.distanceMeters)}m • {new Date(m.occurredAt).toLocaleDateString("ko-KR")}
+                        </p>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
               )}
-              <Link
-                className="rounded-md border bg-white px-3 py-2 text-sm hover:bg-zinc-50"
-                href={`/report?type=ITEM&id=${item.id}`}
-              >
-                이 글 신고
-              </Link>
-            </div>
-          </div>
 
-          <div className="rounded-2xl border border-white/10 bg-white p-5 text-zinc-900">
-            <div className="text-sm font-semibold">다음 단계(미구현)</div>
-            <ul className="mt-2 list-disc pl-5 text-sm text-zinc-700">
-              <li>채팅 연결 및 신고/모더레이션</li>
-              <li>악용 방지(레이트리밋, 중복 업로드 탐지)</li>
-              <li>지도 UI 및 반경/시간 필터</li>
-            </ul>
+              <button className="w-full mt-6 py-3 border border-[var(--civic-border)] text-[10px] font-bold tracking-widest uppercase text-slate-500 hover:text-[var(--civic-primary)] transition-all">
+                추천 매칭 더 보기(목업)
+              </button>
+            </div>
+
+            <div className="p-6 bg-[var(--civic-primary-container)] text-white flex gap-4 items-start">
+              <div className="space-y-1">
+                <p className="text-xs font-bold uppercase tracking-wider">안전하게 인계하기</p>
+                <p className="text-[11px] leading-tight opacity-80">
+                  비공개 특징 1가지를 서로 확인한 뒤 직접 인계를 권장합니다.
+                </p>
+              </div>
+            </div>
           </div>
         </div>
       </div>

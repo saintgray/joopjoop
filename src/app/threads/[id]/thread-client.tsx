@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { toKoreanMessage } from "@/lib/userMessages";
 
 type Message = {
   id: string;
@@ -25,7 +26,7 @@ export function ThreadClient(props: { threadId: string; meId: string }) {
     const res = await fetch(`/api/threads/${props.threadId}/messages`, { cache: "no-store" });
     const json = (await res.json()) as { ok: boolean; messages?: Message[]; error?: string };
     if (!json.ok) {
-      setError(json.error ?? "LOAD_FAILED");
+      setError(toKoreanMessage(json.error ?? "LOAD_FAILED"));
       return;
     }
     setMessages(json.messages ?? []);
@@ -54,7 +55,7 @@ export function ThreadClient(props: { threadId: string; meId: string }) {
       });
       const json = (await res.json()) as { ok: boolean; error?: string };
       if (!json.ok) {
-        setError(json.error ?? "SEND_FAILED");
+        setError(toKoreanMessage(json.error ?? "SEND_FAILED"));
         return;
       }
       setBody("");
@@ -66,23 +67,30 @@ export function ThreadClient(props: { threadId: string; meId: string }) {
 
   return (
     <div className="flex h-[70vh] flex-col">
-      <div ref={listRef} className="flex-1 overflow-auto p-4">
+      <div ref={listRef} className="flex-1 overflow-auto p-6">
         {error ? (
-          <div className="mb-3 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+          <div className="mb-3 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800">
             {error}
           </div>
         ) : null}
 
         {messages.length === 0 ? (
-          <div className="text-sm text-zinc-600">아직 메시지가 없어요. 먼저 인사해보세요.</div>
+          <div className="text-sm text-[var(--civic-muted)]">아직 메시지가 없어요. 먼저 인사해보세요.</div>
         ) : (
           <div className="space-y-2">
             {messages.map((m) => {
               const mine = m.senderId === props.meId;
               return (
                 <div key={m.id} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
-                  <div className={`max-w-[85%] rounded-2xl px-3 py-2 text-sm ${mine ? "bg-zinc-900 text-white" : "bg-zinc-100 text-zinc-900"}`}>
-                    <div className={`text-[11px] ${mine ? "text-zinc-300" : "text-zinc-600"}`}>
+                  <div
+                    className={[
+                      "max-w-[85%] px-4 py-3 text-sm",
+                      mine
+                        ? "bg-[var(--civic-primary)] text-[var(--civic-on-primary)]"
+                        : "bg-[var(--civic-surface-low)] text-[var(--civic-text)] border-l-4 border-[var(--civic-primary)]",
+                    ].join(" ")}
+                  >
+                    <div className={`text-[11px] ${mine ? "text-white/80" : "text-[var(--civic-muted)]"}`}>
                       {mine ? "나" : m.sender.displayName} ·{" "}
                       {new Date(m.createdAt).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })}
                     </div>
@@ -98,21 +106,27 @@ export function ThreadClient(props: { threadId: string; meId: string }) {
         )}
       </div>
 
-      <div className="border-t p-3">
-        <div className="flex gap-2">
-          <textarea
-            value={body}
-            onChange={(e) => setBody(e.target.value)}
-            className="h-20 flex-1 resize-none rounded-md border px-3 py-2 text-sm"
-            placeholder="메시지 입력..."
-          />
+      <div className="border-t border-[var(--civic-border)] bg-[var(--civic-surface-lowest)] px-4 py-4">
+        <div className="flex items-end gap-4">
+          <button className="mb-2 p-2 hover:bg-[var(--civic-surface-high)] transition-colors text-slate-500" type="button" aria-label="attach">
+            +
+          </button>
+          <div className="flex-grow relative">
+            <textarea
+              value={body}
+              onChange={(e) => setBody(e.target.value)}
+              className="w-full bg-[var(--civic-surface-low)] border-b-2 border-[var(--civic-primary)] focus:ring-0 text-sm py-3 px-4 placeholder:text-slate-500 resize-none overflow-hidden"
+              placeholder="메시지를 입력하세요..."
+              rows={1}
+            />
+          </div>
           <button
             type="button"
             disabled={!canSend || loading}
             onClick={send}
-            className="h-20 w-24 rounded-md bg-zinc-900 text-sm font-medium text-white disabled:opacity-60"
+            className="bg-[var(--civic-primary)] text-[var(--civic-on-primary)] px-6 py-3 font-bold uppercase tracking-widest text-[11px] disabled:opacity-60"
           >
-            {loading ? "전송중" : "전송"}
+            {loading ? "전송 중" : "전송"}
           </button>
         </div>
       </div>

@@ -1,179 +1,158 @@
 import Link from "next/link";
-import Image from "next/image";
 import { prisma } from "@/lib/db";
 
-type ItemCard = {
-  id: string;
-  type: "LOST" | "FOUND";
-  title: string;
-  occurredAt: Date;
-  locationText: string | null;
-  imagePath: string;
-  createdAt: Date;
-};
-
 export default async function Home() {
-  const [lostCount, foundCount] = await Promise.all([
-    prisma.item.count({ where: { status: "OPEN", type: "LOST" } }),
-    prisma.item.count({ where: { status: "OPEN", type: "FOUND" } }),
+  const [openTotal, resolvedTotal] = await Promise.all([
+    prisma.item.count({ where: { status: "OPEN" } }),
+    prisma.item.count({ where: { status: "RESOLVED" } }),
   ]);
-
-  const items: ItemCard[] = await prisma.item.findMany({
+  const items = await prisma.item.findMany({
     where: { status: "OPEN" },
     orderBy: { createdAt: "desc" },
-    take: 30,
+    take: 12,
     select: {
       id: true,
       type: true,
       title: true,
-      occurredAt: true,
       locationText: true,
+      occurredAt: true,
       imagePath: true,
-      createdAt: true,
     },
   });
+  const reunitedRate = openTotal + resolvedTotal > 0 ? Math.round((resolvedTotal / (openTotal + resolvedTotal)) * 100) : 0;
 
   return (
-    <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-10">
-      <div className="relative overflow-hidden rounded-3xl border border-gray-200/60 bg-white/70 shadow-xl shadow-blue-100/40 backdrop-blur">
-        <div className="absolute inset-0 bg-[radial-gradient(60rem_30rem_at_30%_-10%,rgba(37,99,235,0.10),transparent_60%),radial-gradient(50rem_26rem_at_90%_0%,rgba(99,102,241,0.08),transparent_55%)]" />
-        <div className="relative p-8 sm:p-10">
-          <div className="inline-flex items-center gap-2 rounded-full border border-blue-200/60 bg-white/70 px-3 py-1 text-xs text-blue-700 backdrop-blur">
-            <span className="h-1.5 w-1.5 rounded-full bg-blue-600" />
-            사진 · 위치 · 시간 기반 매칭
-          </div>
-          <div className="mt-4 grid grid-cols-1 items-end gap-6 lg:grid-cols-[1.3fr_0.7fr]">
-            <div>
-              <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
-                분실물과 습득물을
-                <span className="block text-zinc-800">가깝고 비슷한 글로 빠르게 연결</span>
-              </h1>
-              <p className="mt-3 max-w-xl text-sm leading-6 text-zinc-600">
-                사진 유사도(pHash)와 위치/시간 조건으로 중복을 줄이고, 채팅으로 당사자끼리 바로 확인합니다.
-              </p>
-              <div className="mt-6 flex flex-wrap items-center gap-3">
-                <Link
-                  href="/items/new"
-                  className="inline-flex h-11 items-center justify-center rounded-xl bg-gradient-to-r from-blue-600 to-blue-500 px-4 text-sm font-semibold text-white shadow-sm hover:opacity-95"
-                >
-                  새 글 등록
-                </Link>
-                <Link
-                  href="/items/new"
-                  className="inline-flex h-11 items-center justify-center rounded-xl border border-gray-200 bg-white px-4 text-sm font-medium text-zinc-900 hover:bg-zinc-50"
-                >
-                  지금 바로 매칭 확인
-                </Link>
-                <div className="flex items-center gap-2 text-xs text-zinc-600">
-                  <span className="rounded-full border border-gray-200 bg-white px-2 py-1">분실 {lostCount}</span>
-                  <span className="rounded-full border border-gray-200 bg-white px-2 py-1">습득 {foundCount}</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="rounded-2xl border border-gray-200/60 bg-white/70 p-4 backdrop-blur">
-              <div className="text-sm font-semibold text-zinc-900">빠른 안내</div>
-              <ol className="mt-3 space-y-2 text-sm text-zinc-700">
-                <li className="flex gap-2">
-                  <span className="mt-0.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-gradient-to-r from-blue-600 to-blue-500 text-xs text-white">
-                    1
-                  </span>
-                  사진 1장 + 위치 + 시간 입력
-                </li>
-                <li className="flex gap-2">
-                  <span className="mt-0.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-gradient-to-r from-blue-600 to-blue-500 text-xs text-white">
-                    2
-                  </span>
-                  유사 글 자동 추천 확인
-                </li>
-                <li className="flex gap-2">
-                  <span className="mt-0.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-gradient-to-r from-blue-600 to-blue-500 text-xs text-white">
-                    3
-                  </span>
-                  채팅으로 소유자 확인
-                </li>
-              </ol>
-              <div className="mt-4 rounded-xl border border-blue-200/60 bg-blue-50/60 p-3 text-xs text-zinc-700">
-                개인정보/금전 요구는 의심 신호입니다. 이상 징후는 신고로 남겨주세요.
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="mt-10 flex items-end justify-between gap-4">
-        <div>
-          <h2 className="text-lg font-semibold tracking-tight">최근 글</h2>
-          <p className="mt-1 text-sm text-zinc-600">최신 30건을 보여줍니다.</p>
-        </div>
-        <Link
-          href="/items/new"
-          className="hidden rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-zinc-900 hover:bg-zinc-50 sm:inline-flex"
-        >
-          새 글 쓰기
-        </Link>
-      </div>
-
-      {items.length === 0 ? (
-        <div className="mt-6 rounded-3xl border border-gray-200 bg-white/80 p-8 text-center shadow-sm">
-          <div className="text-sm text-zinc-700">아직 등록된 글이 없습니다.</div>
-          <div className="mt-4">
-            <Link
-              href="/items/new"
-              className="inline-flex h-11 items-center justify-center rounded-xl bg-gradient-to-r from-blue-600 to-blue-500 px-5 text-sm font-semibold text-white shadow-sm hover:opacity-95"
+    <div className="bg-[var(--civic-bg)] text-[var(--civic-text)] min-h-screen">
+      <main className="max-w-7xl mx-auto px-6 py-8 pb-24">
+        <section className="mb-12">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div
+              className="lg:col-span-2 bg-[var(--civic-primary)] p-8 md:p-12 flex flex-col justify-end min-h-[400px] relative overflow-hidden"
+              style={{ background: "linear-gradient(135deg, var(--civic-primary) 0%, var(--civic-primary-container) 100%)" }}
             >
-              첫 글 등록하기
-            </Link>
+              <div className="relative z-10">
+                <span className="text-white/70 text-sm tracking-[0.2em] uppercase mb-4 block">분실물 찾기 도우미</span>
+                <h1 className="text-white text-5xl md:text-7xl font-bold tracking-tighter leading-none mb-6" style={{ fontFamily: "var(--font-headline)" }}>
+                  내 물건,
+                  <br />
+                  다시 찾기
+                </h1>
+                <p className="text-white/70 max-w-md text-lg leading-relaxed">
+                  사진과 위치, 시간 정보를 바탕으로 비슷한 글을 찾아보고 빠르게 연락할 수 있어요.
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-[var(--civic-surface-high)] p-8 flex flex-col justify-between border-b-4 border-[var(--civic-primary)]">
+              <div>
+                <h2 className="text-[var(--civic-primary)] font-bold text-2xl tracking-tight mb-4 uppercase" style={{ fontFamily: "var(--font-headline)" }}>
+                  안내
+                </h2>
+                <ul className="space-y-4 text-sm">
+                  <li className="flex items-start gap-3">
+                    <span className="mt-1 h-2 w-2 bg-[var(--civic-primary)]" />
+                    <span className="font-medium leading-tight">인계 전, 공개 글에 없는 “비공개 특징 1가지”를 상호 확인하세요.</span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <span className="mt-1 h-2 w-2 bg-[var(--civic-primary)]" />
+                    <span className="font-medium leading-tight">금전 요구·개인정보 유도는 의심 신호입니다. 즉시 신고하세요.</span>
+                  </li>
+                </ul>
+              </div>
+              <Link
+                href="/items/new"
+                className="bg-[var(--civic-primary)] text-white w-full py-4 font-bold tracking-widest uppercase text-sm mt-8 hover:bg-[var(--civic-primary-container)] transition-colors text-center"
+              >
+                새 글 등록
+              </Link>
+            </div>
+          </div>
+        </section>
+
+        <div className="bg-[var(--civic-surface-low)] mb-12 p-1 flex flex-col md:flex-row gap-4 items-stretch border-b-2 border-[var(--civic-primary)]">
+          <div className="flex-1 flex items-center px-4 py-2">
+            <input
+              className="bg-transparent border-none focus:ring-0 w-full text-xs tracking-widest uppercase placeholder:text-slate-500"
+              placeholder="물품명/장소/키워드로 검색(목업)"
+              type="text"
+            />
+          </div>
+          <div className="flex border-t md:border-t-0 md:border-l border-[var(--civic-border)]">
+            <button className="px-6 py-4 text-xs tracking-widest uppercase hover:bg-[var(--civic-surface-high)] transition-colors">위치</button>
+            <button className="px-6 py-4 text-xs tracking-widest uppercase bg-[var(--civic-primary)] text-white">검색</button>
           </div>
         </div>
-      ) : (
-        <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {items.map((it) => (
-            <Link
-              key={it.id}
-              href={`/items/${it.id}`}
-              className="group overflow-hidden rounded-2xl border border-white/10 bg-white text-zinc-900 transition hover:shadow-sm"
-            >
-              <div className="relative aspect-[4/3] bg-zinc-100">
-                <Image
-                  src={it.imagePath}
-                  alt={it.title}
-                  fill
-                  className="object-cover transition duration-300 group-hover:scale-[1.02]"
-                  sizes="(max-width: 1024px) 50vw, 33vw"
-                />
-                <div className="absolute left-3 top-3 rounded-full bg-white/90 px-2.5 py-1 text-xs font-medium backdrop-blur">
+            <Link key={it.id} href={`/items/${it.id}`} className="bg-[var(--civic-surface-lowest)] group cursor-pointer border-t-2 border-transparent hover:border-[var(--civic-primary)] transition-all">
+              <div className="aspect-square relative overflow-hidden bg-[var(--civic-surface-high)]">
+                {it.imagePath ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={it.imagePath} alt={it.title} className="absolute inset-0 h-full w-full object-cover grayscale group-hover:grayscale-0 transition-all duration-500" />
+                ) : (
+                  <div className="absolute inset-0 bg-slate-200" />
+                )}
+                <div className="absolute top-0 right-0 bg-[var(--civic-primary)] text-white px-3 py-1 text-[10px] tracking-widest uppercase">
                   {it.type === "LOST" ? "분실" : "습득"}
                 </div>
               </div>
-              <div className="p-4">
-                <div className="line-clamp-1 font-medium tracking-tight">{it.title}</div>
-                <div className="mt-1 text-xs text-zinc-700">
-                  {new Date(it.occurredAt).toLocaleString("ko-KR")}
-                  {it.locationText ? ` · ${it.locationText}` : ""}
+              <div className="p-5">
+                <span className="text-xs tracking-widest text-slate-500 uppercase mb-2 block">번호: {it.id.slice(0, 8)}</span>
+                <h3 className="text-[var(--civic-text)] font-bold text-lg leading-tight mb-4">{it.title}</h3>
+                <div className="space-y-2 border-t border-[var(--civic-border)] pt-4 text-xs">
+                  <div className="flex items-center gap-2">
+                    <span className="h-3 w-3 bg-[var(--civic-primary)]" />
+                    <span className="font-medium">{it.locationText ?? "—"}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-slate-500">
+                    <span className="h-3 w-3 bg-slate-400" />
+                    <span>{new Date(it.occurredAt).toLocaleString("ko-KR")}</span>
+                  </div>
                 </div>
               </div>
             </Link>
           ))}
         </div>
-      )}
 
-      <div className="mt-10 rounded-3xl border border-gray-200 bg-white/80 p-6 shadow-sm sm:p-8">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <section className="mt-16 bg-[var(--civic-text)] p-12 text-white grid grid-cols-1 md:grid-cols-3 gap-12">
           <div>
-            <div className="text-sm font-semibold text-zinc-900">도움이 필요하신가요?</div>
-            <div className="mt-1 text-sm text-zinc-600">
-              악용/사기 의심, 도용, 반복 게시물은 신고로 남겨주세요.
-            </div>
+            <span className="text-xs tracking-[0.3em] uppercase opacity-60 mb-2 block">진행 중 기록</span>
+            <span className="text-5xl font-black tracking-tighter">{openTotal}</span>
           </div>
-          <Link
-            href="/report"
-            className="inline-flex h-11 items-center justify-center rounded-xl border border-gray-200 bg-white px-4 text-sm font-semibold text-zinc-900 hover:bg-zinc-50"
-          >
-            신고 접수
-          </Link>
-        </div>
-      </div>
-    </main>
+          <div>
+            <span className="text-xs tracking-[0.3em] uppercase opacity-60 mb-2 block">해결(누적)</span>
+            <span className="text-5xl font-black tracking-tighter">{reunitedRate}%</span>
+          </div>
+          <div>
+            <span className="text-xs tracking-[0.3em] uppercase opacity-60 mb-2 block">처리 센터</span>
+            <span className="text-5xl font-black tracking-tighter">14</span>
+          </div>
+        </section>
+
+        <Link
+          href="/items/new"
+          className="fixed bottom-24 right-8 bg-[var(--civic-primary)] text-white w-14 h-14 flex items-center justify-center shadow-[0px_12px_32px_rgba(13,28,46,0.06)] hover:bg-[var(--civic-primary-container)] transition-colors z-40"
+          aria-label="새 글 등록"
+        >
+          +
+        </Link>
+      </main>
+
+      <nav className="fixed bottom-0 left-0 w-full flex justify-around items-center h-16 bg-white shadow-[0px_-12px_32px_rgba(13,28,46,0.06)] z-50">
+        <Link className="flex flex-col items-center justify-center bg-[var(--civic-primary-container)] text-white px-6 py-2" href="/">
+          <span className="text-[11px] font-bold tracking-widest uppercase">홈</span>
+        </Link>
+        <Link className="flex flex-col items-center justify-center text-[var(--civic-text)] opacity-50 px-6 py-2 hover:opacity-100" href="/items/new">
+          <span className="text-[11px] font-bold tracking-widest uppercase">등록</span>
+        </Link>
+        <Link className="flex flex-col items-center justify-center text-[var(--civic-text)] opacity-50 px-6 py-2 hover:opacity-100" href="/threads/mock">
+          <span className="text-[11px] font-bold tracking-widest uppercase">채팅</span>
+        </Link>
+        <Link className="flex flex-col items-center justify-center text-[var(--civic-text)] opacity-50 px-6 py-2 hover:opacity-100" href="/report">
+          <span className="text-[11px] font-bold tracking-widest uppercase">신고</span>
+        </Link>
+      </nav>
+    </div>
   );
 }

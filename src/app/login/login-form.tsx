@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { signIn } from "next-auth/react";
+import { toKoreanMessage } from "@/lib/userMessages";
 
 export function LoginForm() {
   const router = useRouter();
@@ -16,14 +18,13 @@ export function LoginForm() {
     setError(null);
     setLoading(true);
     try {
-      const res = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ email, password }),
+      const res = await signIn("credentials", {
+        redirect: false,
+        email,
+        password,
       });
-      const json = (await res.json()) as { ok: boolean; error?: string };
-      if (!json.ok) {
-        setError(json.error ?? "LOGIN_FAILED");
+      if (!res?.ok) {
+        setError(toKoreanMessage(res?.error ?? "LOGIN_FAILED"));
         return;
       }
       router.push("/");
@@ -34,39 +35,39 @@ export function LoginForm() {
   }
 
   return (
-    <form className="flex flex-col gap-3" onSubmit={onSubmit}>
-      <label className="flex flex-col gap-1 text-sm">
-        <span className="text-xs font-medium text-zinc-700">이메일</span>
+    <form className="flex flex-col gap-4" onSubmit={onSubmit}>
+      <label className="flex flex-col gap-2 text-sm">
+        <span className="text-[10px] font-bold tracking-[0.2em] uppercase text-[var(--civic-muted)]">이메일</span>
         <input
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className="h-10 rounded-md border px-3"
+          className="h-11 border border-[var(--civic-border)] bg-[var(--civic-surface-lowest)] px-3 text-sm text-[var(--civic-text)] outline-none focus:border-[var(--civic-primary)] focus:ring-2 focus:ring-[var(--civic-primary)]/10"
           type="email"
           required
         />
       </label>
-      <label className="flex flex-col gap-1 text-sm">
-        <span className="text-xs font-medium text-zinc-700">비밀번호</span>
+      <label className="flex flex-col gap-2 text-sm">
+        <span className="text-[10px] font-bold tracking-[0.2em] uppercase text-[var(--civic-muted)]">비밀번호</span>
         <input
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          className="h-10 rounded-md border px-3"
+          className="h-11 border border-[var(--civic-border)] bg-[var(--civic-surface-lowest)] px-3 text-sm text-[var(--civic-text)] outline-none focus:border-[var(--civic-primary)] focus:ring-2 focus:ring-[var(--civic-primary)]/10"
           type="password"
           required
         />
       </label>
       <button
         disabled={loading}
-        className="mt-2 h-11 rounded-md bg-zinc-900 text-sm font-medium text-white disabled:opacity-60"
+        className="mt-2 h-11 bg-[var(--civic-primary)] text-[var(--civic-on-primary)] text-[11px] font-bold tracking-[0.2em] uppercase disabled:opacity-60"
       >
         {loading ? "로그인 중..." : "로그인"}
       </button>
       {error ? (
-        <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+        <div className="border border-red-200 bg-red-50 p-3 text-sm text-red-800">
           {error}
         </div>
       ) : null}
-      <div className="text-sm text-zinc-600">
+      <div className="text-sm text-[var(--civic-muted)]">
         계정이 없나요? <Link className="underline" href="/signup">회원가입</Link>
       </div>
     </form>

@@ -43,21 +43,21 @@ export function MapModal(props: {
   if (!props.isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/30 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-2xl overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl">
-        <div className="flex items-center justify-between border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50 px-4 py-3">
-          <div className="text-sm font-semibold text-zinc-900">지도에서 위치 선택</div>
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[var(--civic-scrim)] p-4 backdrop-blur-sm">
+      <div className="w-full max-w-2xl overflow-hidden border border-[var(--civic-border)] bg-[var(--civic-surface-lowest)] shadow-2xl">
+        <div className="flex items-center justify-between border-b border-[var(--civic-border)] bg-[var(--civic-surface-high)] px-4 py-3">
+          <div className="text-sm font-bold tracking-tight text-[var(--civic-text)]">지도에서 위치 선택</div>
           <button
             type="button"
             onClick={props.onClose}
-            className="rounded-md px-2 py-1 text-sm text-zinc-700 hover:bg-white/60"
+            className="px-3 py-2 text-[11px] font-bold tracking-[0.2em] uppercase text-[var(--civic-text)] hover:bg-[var(--civic-surface-highest)] transition-colors"
           >
             닫기
           </button>
         </div>
 
         <div className="p-4">
-          <div className="overflow-hidden rounded-xl border border-gray-200">
+          <div className="overflow-hidden border border-[var(--civic-border)]">
             <Map
               id="jubhaeng-map"
               center={pos}
@@ -83,7 +83,7 @@ export function MapModal(props: {
             </Map>
           </div>
 
-          <div className="mt-3 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-zinc-700">
+          <div className="mt-3 border border-[var(--civic-border)] bg-[var(--civic-surface-lowest)] px-4 py-3 text-sm text-[var(--civic-muted)]">
             {loadingAddr ? "주소 확인 중..." : addressText || "지도에서 위치를 클릭하거나 핀을 드래그해 선택하세요."}
           </div>
 
@@ -91,14 +91,14 @@ export function MapModal(props: {
             <button
               type="button"
               onClick={props.onClose}
-              className="h-10 rounded-xl border border-gray-200 bg-white px-4 text-sm font-medium text-zinc-900 hover:bg-zinc-50"
+              className="h-11 border border-[var(--civic-border)] bg-[var(--civic-surface-lowest)] px-5 text-[11px] font-bold tracking-[0.2em] uppercase text-[var(--civic-text)] hover:bg-[var(--civic-surface-low)] transition-colors"
             >
               취소
             </button>
             <button
               type="button"
               onClick={() => props.onConfirm({ lat: pos.lat, lng: pos.lng, addressText: addressText || undefined })}
-              className="h-10 rounded-xl bg-gradient-to-r from-blue-600 to-blue-500 px-4 text-sm font-semibold text-white shadow-sm hover:opacity-95"
+              className="h-11 bg-[var(--civic-primary)] px-5 text-[11px] font-bold tracking-[0.2em] uppercase text-[var(--civic-on-primary)] hover:bg-[var(--civic-primary-container)] transition-colors"
             >
               이 위치로 확정
             </button>

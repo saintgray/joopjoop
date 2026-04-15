@@ -2,12 +2,21 @@ import { NewItemForm } from "./new-item-form";
 
 export default function NewItemPage() {
   return (
-    <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-8">
-      <h1 className="text-2xl font-semibold tracking-tight">새 글 등록</h1>
-      <p className="mt-2 text-sm text-zinc-600">
-        사진 + 위치 + 시간을 입력하면 유사 글을 자동 추천합니다.
-      </p>
-      <div className="mt-6 rounded-2xl border border-gray-200 bg-white/90 p-5 text-zinc-900 shadow-sm">
+    <main className="max-w-4xl mx-auto px-6 py-8 pb-24 bg-[var(--civic-bg)] text-[var(--civic-text)]">
+      <div className="mb-10">
+        <div className="flex justify-between items-end mb-2">
+          <span className="text-[var(--civic-primary)] font-bold text-sm tracking-widest uppercase" style={{ fontFamily: "var(--font-headline)" }}>
+            4단계 중 2단계
+          </span>
+          <span className="text-[var(--civic-muted)] text-xs font-medium tracking-wider uppercase">위치 정보</span>
+        </div>
+        <div className="w-full h-1 bg-[var(--civic-surface-high)]">
+          <div className="h-full bg-[var(--civic-primary)] w-1/2" />
+        </div>
+      </div>
+
+      {/* 기존 목업 입력 UI 제거: 실제 등록 폼만 사용 */}
+      <div className="bg-[var(--civic-surface-lowest)] border border-[var(--civic-border)] p-6">
         <NewItemForm />
       </div>
     </main>

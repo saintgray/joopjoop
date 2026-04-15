@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { signOut } from "next-auth/react";
 
 export function LogoutButton() {
   const router = useRouter();
@@ -15,7 +16,7 @@ export function LogoutButton() {
       onClick={async () => {
         setLoading(true);
         try {
-          await fetch("/api/auth/logout", { method: "POST" });
+          await signOut({ redirect: false });
           router.push("/");
           router.refresh();
         } finally {

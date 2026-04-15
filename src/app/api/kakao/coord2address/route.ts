@@ -1,6 +1,13 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+type KakaoCoord2AddressResponse = {
+  documents?: Array<{
+    road_address?: { address_name?: string | null } | null;
+    address?: { address_name?: string | null } | null;
+  }>;
+};
+
 const QuerySchema = z.object({
   x: z.coerce.number(), // lng
   y: z.coerce.number(), // lat
@@ -32,7 +39,7 @@ export async function GET(req: Request) {
     },
   );
 
-  const json = await upstream.json().catch(() => null);
+  const json: KakaoCoord2AddressResponse | null = await upstream.json().catch(() => null);
   if (!upstream.ok) {
     return NextResponse.json(
       { ok: false, error: "KAKAO_UPSTREAM_ERROR", status: upstream.status, body: json },
@@ -40,7 +47,7 @@ export async function GET(req: Request) {
     );
   }
 
-  const doc = (json?.documents?.[0] ?? null) as any;
+  const doc = json?.documents?.[0] ?? null;
   const address =
     doc?.road_address?.address_name ||
     doc?.address?.address_name ||

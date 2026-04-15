@@ -5,13 +5,20 @@ import { LogoutButton } from "./LogoutButton";
 export async function TopNav() {
   const user = await getCurrentUser();
   return (
-    <header className="sticky top-0 z-50 border-b border-gray-200/50 bg-white/80 backdrop-blur">
+    <header className="sticky top-0 z-50 border-b border-[var(--civic-border)] bg-[var(--civic-bg)] opacity-90 backdrop-blur-md">
       <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-4 px-4 py-3">
-        <Link href="/" className="font-semibold tracking-tight text-zinc-900">
+        <Link
+          href="/"
+          className="font-black tracking-tighter uppercase text-[var(--civic-primary-container)]"
+          style={{ fontFamily: "var(--font-headline)" }}
+        >
           줍줍
         </Link>
         <nav className="flex items-center gap-2 text-sm">
-          <Link href="/items/new" className="rounded-md px-3 py-2 text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900">
+          <Link
+            href="/items/new"
+            className="px-3 py-2 text-[var(--civic-text)]/60 font-bold tracking-tight hover:bg-[var(--civic-surface-high)] transition-colors"
+          >
             새 글
           </Link>
           {user ? (
@@ -23,10 +30,16 @@ export async function TopNav() {
             </>
           ) : (
             <>
-              <Link href="/login" className="rounded-md px-3 py-2 text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900">
+              <Link
+                href="/login"
+                className="px-3 py-2 text-[var(--civic-text)]/60 font-bold tracking-tight hover:bg-[var(--civic-surface-high)] transition-colors"
+              >
                 로그인
               </Link>
-              <Link href="/signup" className="rounded-md bg-gradient-to-r from-blue-600 to-blue-500 px-3 py-2 font-medium text-white shadow-sm hover:opacity-95">
+              <Link
+                href="/signup"
+                className="bg-[var(--civic-primary)] px-3 py-2 font-bold tracking-tight text-white hover:bg-[var(--civic-primary-container)] transition-colors"
+              >
                 회원가입
               </Link>
             </>

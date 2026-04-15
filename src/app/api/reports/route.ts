@@ -19,7 +19,14 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, error: "INVALID_INPUT" }, { status: 400 });
   }
 
-  const data: any = {
+  const data: {
+    targetType: "ITEM" | "MESSAGE" | "USER";
+    reason: string;
+    reporterId: string;
+    itemId?: string;
+    messageId?: string;
+    targetUserId?: string;
+  } = {
     targetType: parsed.data.targetType,
     reason: parsed.data.reason,
     reporterId: user.id,

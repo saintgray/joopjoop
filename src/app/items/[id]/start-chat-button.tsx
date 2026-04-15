@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { toKoreanMessage } from "@/lib/userMessages";
 
 export function StartChatButton(props: { itemId: string }) {
   const router = useRouter();
@@ -25,7 +26,7 @@ export function StartChatButton(props: { itemId: string }) {
             });
             const json = (await res.json()) as { ok: boolean; thread?: { id: string }; error?: string };
             if (!json.ok || !json.thread?.id) {
-              setError(json.error ?? "THREAD_CREATE_FAILED");
+              setError(toKoreanMessage(json.error ?? "THREAD_CREATE_FAILED"));
               return;
             }
             router.push(`/threads/${json.thread.id}`);
@@ -34,7 +35,7 @@ export function StartChatButton(props: { itemId: string }) {
           }
         }}
       >
-        {loading ? "연결 중..." : "채팅 시작"}
+        {loading ? "열리는 중..." : "채팅 시작"}
       </button>
       {error ? <div className="text-xs text-red-700">{error}</div> : null}
     </div>

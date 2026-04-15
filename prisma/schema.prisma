@@ -71,6 +71,25 @@ model Session {
   @@index([expiresAt])
 }
 
+model PendingRegistration {
+  id              String   @id @default(cuid())
+  email           String   @unique @db.VarChar(320)
+  displayName     String?  @db.VarChar(80)
+  passwordHash    String?  @db.VarChar(255)
+
+  emailCode       String?  @db.VarChar(6)
+  emailExpiresAt  DateTime?
+  emailVerifiedAt DateTime?
+
+  phone           String?  @db.VarChar(30)
+  phoneCode       String?  @db.VarChar(6)
+  phoneExpiresAt  DateTime?
+  phoneVerifiedAt DateTime?
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
 model Item {
   id           String     @id @default(cuid())
   type         ItemType
@@ -84,9 +103,9 @@ model Item {
   longitude    Decimal    @db.Decimal(9, 6)
   locationText String?    @db.VarChar(255)
 
-  imagePath    String     @db.VarChar(255)
+  imagePath    String?    @db.VarChar(255)
   /// 64-bit pHash stored as 16-hex chars
-  imagePHash   String     @db.Char(16)
+  imagePHash   String?    @db.Char(16)
 
   createdById  String
   createdAt    DateTime   @default(now())
